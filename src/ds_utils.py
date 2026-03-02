@@ -1,6 +1,7 @@
 """
 Data Science utility functions for the Diabetes 130-US Hospitals project.
-Provides EDA, visualization, preprocessing, and model evaluation helpers.
+Provides EDA, visualization, preprocessing, model evaluation, and
+explainability helpers for hospital readmission prediction.
 """
 
 import pandas as pd
@@ -8,16 +9,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
-from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
+from sklearn.model_selection import (
+    train_test_split,
+    cross_val_score,
+    StratifiedKFold,
+)
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import (
     classification_report,
     confusion_matrix,
     accuracy_score,
+    precision_score,
+    recall_score,
     roc_auc_score,
     f1_score,
+    roc_curve,
+    precision_recall_curve,
+    average_precision_score,
     ConfusionMatrixDisplay,
 )
+from sklearn.inspection import permutation_importance, PartialDependenceDisplay
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +180,6 @@ def clean_diabetes_data(df: pd.DataFrame) -> pd.DataFrame:
       - Drop columns with >40% missing or zero variance
       - Drop duplicate patient encounters (keep first)
       - Remove rows where discharge = expired/hospice
-      - Map diagnosis codes to categories
     """
     df = df.copy()
 
@@ -285,6 +295,13 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def create_binary_target(df: pd.DataFrame, col: str = 'readmitted') -> pd.DataFrame:
+    """Convert the readmitted column to binary: 1 = readmitted <30 days, 0 = otherwise."""
+    df = df.copy()
+    df[col] = (df[col] == '<30').astype(int)
+    return df
+
+
 # ---------------------------------------------------------------------------
 # 4. Preprocessing helpers
 # ---------------------------------------------------------------------------
@@ -294,19 +311,15 @@ def encode_and_prepare(df: pd.DataFrame, target: str,
                        random_state: int = 42):
     """Encode categoricals, split data, and scale features.
 
-    Returns: X_train, X_test, y_train, y_test, scaler, label_encoder
+    Returns: X_train, X_test, y_train, y_test, feature_names
     """
     df = df.copy()
-
-    # Encode target
-    le_target = LabelEncoder()
-    df[target] = le_target.fit_transform(df[target])
 
     # Separate features and target
     y = df[target]
     X = df.drop(columns=[target])
 
-    # Drop remaining high-cardinality string columns
+    # Drop remaining high-cardinality or leftover string columns
     cat_cols = X.select_dtypes(include=["object", "category"]).columns.tolist()
     low_card = [c for c in cat_cols if X[c].nunique() <= 15]
     high_card = [c for c in cat_cols if X[c].nunique() > 15]
@@ -316,6 +329,7 @@ def encode_and_prepare(df: pd.DataFrame, target: str,
 
     # One-hot encode remaining categoricals
     X = pd.get_dummies(X, columns=low_card, drop_first=True, dtype=int)
+    feature_names = X.columns.tolist()
     print(f"Final feature matrix shape: {X.shape}")
 
     # Train/test split (stratified)
@@ -323,14 +337,14 @@ def encode_and_prepare(df: pd.DataFrame, target: str,
         X, y, test_size=test_size, random_state=random_state, stratify=y
     )
 
-    # Scale numeric features
+    # Scale features
     scaler = StandardScaler()
     X_train = pd.DataFrame(scaler.fit_transform(X_train),
-                           columns=X.columns, index=X_train.index)
+                           columns=feature_names, index=X_train.index)
     X_test = pd.DataFrame(scaler.transform(X_test),
-                          columns=X.columns, index=X_test.index)
+                          columns=feature_names, index=X_test.index)
 
-    return X_train, X_test, y_train, y_test, scaler, le_target
+    return X_train, X_test, y_train, y_test, feature_names
 
 
 # ---------------------------------------------------------------------------
@@ -338,32 +352,111 @@ def encode_and_prepare(df: pd.DataFrame, target: str,
 # ---------------------------------------------------------------------------
 
 def evaluate_classifier(model, X_test, y_test, label_names=None):
-    """Print classification report and plot confusion matrix."""
+    """Print classification report and return dict of key metrics."""
     y_pred = model.predict(X_test)
     print(classification_report(y_test, y_pred, target_names=label_names))
 
-    fig, ax = plt.subplots(figsize=(7, 6))
-    ConfusionMatrixDisplay.from_predictions(
-        y_test, y_pred, display_labels=label_names,
-        cmap="Blues", ax=ax
-    )
-    ax.set_title("Confusion Matrix")
+    acc = accuracy_score(y_test, y_pred)
+    prec = precision_score(y_test, y_pred, average='weighted')
+    rec = recall_score(y_test, y_pred, average='weighted')
+    f1 = f1_score(y_test, y_pred, average='weighted')
+
+    # ROC-AUC (use probabilities if available)
+    if hasattr(model, 'predict_proba'):
+        y_prob = model.predict_proba(X_test)[:, 1]
+        auc = roc_auc_score(y_test, y_prob)
+    else:
+        y_dec = model.decision_function(X_test)
+        auc = roc_auc_score(y_test, y_dec)
+
+    return {"accuracy": acc, "precision": prec, "recall": rec,
+            "f1": f1, "roc_auc": auc}
+
+
+def plot_confusion_matrices(models: dict, X_test, y_test,
+                            label_names=None, figsize=(18, 5)):
+    """Plot confusion matrices for multiple models side by side."""
+    n = len(models)
+    fig, axes = plt.subplots(1, n, figsize=figsize)
+    if n == 1:
+        axes = [axes]
+    for ax, (name, model) in zip(axes, models.items()):
+        y_pred = model.predict(X_test)
+        ConfusionMatrixDisplay.from_predictions(
+            y_test, y_pred, display_labels=label_names,
+            cmap="Blues", ax=ax, colorbar=False
+        )
+        ax.set_title(f"{name}", fontsize=13, fontweight='bold')
+    plt.suptitle("Confusion Matrices", fontsize=15, fontweight='bold', y=1.02)
     plt.tight_layout()
     plt.show()
 
-    acc = accuracy_score(y_test, y_pred)
-    f1 = f1_score(y_test, y_pred, average='weighted')
-    return {"accuracy": acc, "f1_weighted": f1}
+
+def plot_roc_curves(models: dict, X_test, y_test, figsize=(9, 7)):
+    """Plot ROC curves for all models on one figure."""
+    plt.figure(figsize=figsize)
+    colors = ['#2196F3', '#FF5722', '#4CAF50', '#9C27B0']
+    for i, (name, model) in enumerate(models.items()):
+        if hasattr(model, 'predict_proba'):
+            y_prob = model.predict_proba(X_test)[:, 1]
+        else:
+            y_prob = model.decision_function(X_test)
+        fpr, tpr, _ = roc_curve(y_test, y_prob)
+        auc = roc_auc_score(y_test, y_prob)
+        plt.plot(fpr, tpr, color=colors[i % len(colors)], lw=2.5,
+                 label=f"{name} (AUC = {auc:.4f})")
+
+    plt.plot([0, 1], [0, 1], 'k--', lw=1.5, alpha=0.5, label='Random (AUC = 0.5)')
+    plt.xlim([-0.01, 1.01])
+    plt.ylim([-0.01, 1.01])
+    plt.xlabel('False Positive Rate', fontsize=12)
+    plt.ylabel('True Positive Rate', fontsize=12)
+    plt.title('ROC Curves — All Models', fontsize=14, fontweight='bold')
+    plt.legend(loc='lower right', fontsize=11, frameon=True, fancybox=True, shadow=True)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
 
 
-def compare_models(results: dict, figsize=(10, 5)):
-    """Bar chart comparing model metrics."""
+def plot_precision_recall_curves(models: dict, X_test, y_test, figsize=(9, 7)):
+    """Plot Precision-Recall curves for all models on one figure."""
+    plt.figure(figsize=figsize)
+    colors = ['#2196F3', '#FF5722', '#4CAF50', '#9C27B0']
+    for i, (name, model) in enumerate(models.items()):
+        if hasattr(model, 'predict_proba'):
+            y_prob = model.predict_proba(X_test)[:, 1]
+        else:
+            y_prob = model.decision_function(X_test)
+        precision, recall, _ = precision_recall_curve(y_test, y_prob)
+        ap = average_precision_score(y_test, y_prob)
+        plt.plot(recall, precision, color=colors[i % len(colors)], lw=2.5,
+                 label=f"{name} (AP = {ap:.4f})")
+
+    baseline = y_test.mean()
+    plt.axhline(y=baseline, color='k', linestyle='--', lw=1.5, alpha=0.5,
+                label=f'Baseline (prevalence = {baseline:.3f})')
+    plt.xlim([-0.01, 1.01])
+    plt.ylim([-0.01, 1.01])
+    plt.xlabel('Recall', fontsize=12)
+    plt.ylabel('Precision', fontsize=12)
+    plt.title('Precision-Recall Curves — All Models', fontsize=14, fontweight='bold')
+    plt.legend(loc='upper right', fontsize=11, frameon=True, fancybox=True, shadow=True)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+
+def compare_models(results: dict, figsize=(12, 6)):
+    """Bar chart comparing model metrics side by side."""
     df_results = pd.DataFrame(results).T
-    df_results.plot.bar(figsize=figsize, edgecolor='black', rot=0)
-    plt.title("Model Comparison")
-    plt.ylabel("Score")
+    ax = df_results.plot.bar(figsize=figsize, edgecolor='black', rot=0, width=0.75)
+    plt.title("Model Comparison — All Metrics", fontsize=14, fontweight='bold')
+    plt.ylabel("Score", fontsize=12)
     plt.ylim(0, 1)
-    plt.legend(loc='lower right')
+    plt.legend(loc='lower right', fontsize=10, frameon=True)
+    # Add value labels on bars
+    for container in ax.containers:
+        ax.bar_label(container, fmt='%.3f', fontsize=7, padding=2)
     plt.tight_layout()
     plt.show()
     return df_results
@@ -377,8 +470,146 @@ def quick_cross_val(model, X, y, cv=5, scoring="accuracy"):
     return scores
 
 
+def cross_val_box_plot(models: dict, X, y, cv=5, scoring='roc_auc',
+                       figsize=(10, 6)):
+    """Box plot of cross-validation scores for model stability comparison."""
+    skf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=42)
+    all_scores = {}
+    for name, model in models.items():
+        scores = cross_val_score(model, X, y, cv=skf, scoring=scoring)
+        all_scores[name] = scores
+        print(f"{name:25s} CV {scoring}: {scores.mean():.4f} (+/- {scores.std():.4f})")
+
+    fig, ax = plt.subplots(figsize=figsize)
+    bp = ax.boxplot(all_scores.values(), labels=all_scores.keys(), patch_artist=True,
+                    widths=0.5)
+    colors = ['#2196F3', '#FF5722', '#4CAF50']
+    for patch, color in zip(bp['boxes'], colors):
+        patch.set_facecolor(color)
+        patch.set_alpha(0.7)
+    ax.set_ylabel(f'CV {scoring}', fontsize=12)
+    ax.set_title(f'{cv}-Fold Cross-Validation Stability', fontsize=14, fontweight='bold')
+    ax.grid(True, alpha=0.3, axis='y')
+    plt.tight_layout()
+    plt.show()
+    return all_scores
+
+
 # ---------------------------------------------------------------------------
-# 6. Statistical tests
+# 6. Explainability — Permutation Feature Importance
+# ---------------------------------------------------------------------------
+
+def plot_permutation_importance(model, X_test, y_test, feature_names=None,
+                                top_n=15, n_repeats=10, scoring='roc_auc',
+                                figsize=(10, 8)):
+    """Compute and plot permutation feature importance for a single model."""
+    result = permutation_importance(
+        model, X_test, y_test,
+        n_repeats=n_repeats, random_state=42, scoring=scoring
+    )
+    if feature_names is None:
+        feature_names = X_test.columns.tolist() if hasattr(X_test, 'columns') \
+            else [f"Feature {i}" for i in range(X_test.shape[1])]
+
+    imp = pd.DataFrame({
+        'feature': feature_names,
+        'importance_mean': result.importances_mean,
+        'importance_std': result.importances_std
+    }).sort_values('importance_mean', ascending=False).head(top_n)
+
+    fig, ax = plt.subplots(figsize=figsize)
+    bars = ax.barh(
+        imp['feature'][::-1],
+        imp['importance_mean'][::-1],
+        xerr=imp['importance_std'][::-1],
+        color='#2196F3', edgecolor='black', alpha=0.85, capsize=3
+    )
+    ax.set_xlabel(f'Mean Decrease in {scoring}', fontsize=12)
+    ax.set_title(f'Permutation Feature Importance (Top {top_n})',
+                 fontsize=14, fontweight='bold')
+    ax.grid(True, alpha=0.3, axis='x')
+    plt.tight_layout()
+    plt.show()
+    return imp
+
+
+# ---------------------------------------------------------------------------
+# 7. Explainability — Partial Dependence Plots
+# ---------------------------------------------------------------------------
+
+def plot_partial_dependence(model, X_test, features, feature_names=None,
+                            figsize=(16, 10)):
+    """Plot partial dependence for selected features of the best model."""
+    if feature_names is None:
+        feature_names = X_test.columns.tolist() if hasattr(X_test, 'columns') \
+            else [f"Feature {i}" for i in range(X_test.shape[1])]
+
+    fig, ax = plt.subplots(figsize=figsize)
+    display = PartialDependenceDisplay.from_estimator(
+        model, X_test, features=features,
+        feature_names=feature_names,
+        kind='average', ax=ax,
+        grid_resolution=50
+    )
+    fig.suptitle('Partial Dependence Plots — Best Model',
+                 fontsize=14, fontweight='bold')
+    plt.tight_layout()
+    plt.show()
+
+
+# ---------------------------------------------------------------------------
+# 8. Threshold analysis
+# ---------------------------------------------------------------------------
+
+def threshold_analysis(model, X_test, y_test, figsize=(10, 7)):
+    """Plot precision, recall, and F1 vs classification threshold."""
+    if hasattr(model, 'predict_proba'):
+        y_prob = model.predict_proba(X_test)[:, 1]
+    else:
+        y_prob = model.decision_function(X_test)
+
+    thresholds = np.arange(0.05, 0.96, 0.01)
+    precisions, recalls, f1s = [], [], []
+
+    for t in thresholds:
+        y_pred = (y_prob >= t).astype(int)
+        if y_pred.sum() == 0:
+            precisions.append(0)
+            recalls.append(0)
+            f1s.append(0)
+            continue
+        precisions.append(precision_score(y_test, y_pred, zero_division=0))
+        recalls.append(recall_score(y_test, y_pred, zero_division=0))
+        f1s.append(f1_score(y_test, y_pred, zero_division=0))
+
+    best_idx = np.argmax(f1s)
+    best_threshold = thresholds[best_idx]
+
+    plt.figure(figsize=figsize)
+    plt.plot(thresholds, precisions, 'b-', lw=2, label='Precision')
+    plt.plot(thresholds, recalls, 'r-', lw=2, label='Recall')
+    plt.plot(thresholds, f1s, 'g-', lw=2.5, label='F1 Score')
+    plt.axvline(x=best_threshold, color='gray', linestyle='--', lw=1.5,
+                label=f'Best F1 threshold = {best_threshold:.2f}')
+    plt.scatter([best_threshold], [f1s[best_idx]], color='green', s=100,
+                zorder=5, edgecolors='black')
+    plt.xlabel('Classification Threshold', fontsize=12)
+    plt.ylabel('Score', fontsize=12)
+    plt.title('Precision / Recall / F1 vs. Threshold', fontsize=14, fontweight='bold')
+    plt.legend(fontsize=11, frameon=True, fancybox=True, shadow=True)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+    print(f"Optimal threshold (max F1): {best_threshold:.2f}")
+    print(f"  Precision: {precisions[best_idx]:.4f}")
+    print(f"  Recall:    {recalls[best_idx]:.4f}")
+    print(f"  F1 Score:  {f1s[best_idx]:.4f}")
+    return best_threshold
+
+
+# ---------------------------------------------------------------------------
+# 9. Statistical tests
 # ---------------------------------------------------------------------------
 
 def normality_test(series: pd.Series, alpha: float = 0.05):
