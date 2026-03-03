@@ -311,7 +311,7 @@ def encode_and_prepare(df: pd.DataFrame, target: str,
                        random_state: int = 42):
     """Encode categoricals, split data, and scale features.
 
-    Returns: X_train, X_test, y_train, y_test, feature_names
+    Returns: X_train, X_test, y_train, y_test, feature_names, scaler
     """
     df = df.copy()
 
@@ -344,7 +344,7 @@ def encode_and_prepare(df: pd.DataFrame, target: str,
     X_test = pd.DataFrame(scaler.transform(X_test),
                           columns=feature_names, index=X_test.index)
 
-    return X_train, X_test, y_train, y_test, feature_names
+    return X_train, X_test, y_train, y_test, feature_names, scaler
 
 
 # ---------------------------------------------------------------------------
