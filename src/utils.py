@@ -177,8 +177,8 @@ def plot_target_vs_features(df: pd.DataFrame, target: str,
 # 3. Data cleaning helpers (Diabetes-specific)
 # ---------------------------------------------------------------------------
 
-def clean_diabetes_data(df: pd.DataFrame) -> pd.DataFrame:
-    """Clean the Diabetes 130-US Hospitals dataset.
+def clean_data(df: pd.DataFrame) -> pd.DataFrame:
+    """Clean the hospital encounters dataset.
 
     Steps:
       - Replace '?' with NaN
