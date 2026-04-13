@@ -1,6 +1,10 @@
 """
-Utility functions for the Hospital Readmission Prediction project.
-EDA, visualization, preprocessing, model evaluation, and explainability.
+This file consists of all the utility functions used for the project
+"Predictive Analytics and Explainable AI for Hospital Readmission Risk"
+and is imported in 200490453_Raj_Panchal_CS719_Project_Notebook.ipynb
+
+Covers: data profiling, visualization, cleaning, feature engineering,
+preprocessing, model evaluation, and explainability (PFI, PDP, threshold).
 
 CS 719 — Raj Panchal (200490453) — University of Regina
 """
