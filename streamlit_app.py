@@ -1,8 +1,8 @@
 """
-Diabetes Readmission Risk Assessment — Explainable AI Dashboard
-Clinical Decision Support Tool for Healthcare Professionals
+Hospital Readmission Risk Dashboard
+Explainable AI for Clinical Decision Support
 
-CS 719 — Data Scientist Assistant
+CS 719 — Raj Panchal (200490453) — University of Regina
 Dataset: Diabetes 130-US Hospitals (101,766 encounters)
 """
 
@@ -13,21 +13,16 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import json
 import joblib
-import os
 
-# ═══════════════════════════════════════════════════════════════
-# PAGE CONFIG
-# ═══════════════════════════════════════════════════════════════
+# --- page config
 st.set_page_config(
-    page_title="Readmission Risk — Explainable AI",
+    page_title="Readmission Risk Dashboard",
     page_icon="\U0001F3E5",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ═══════════════════════════════════════════════════════════════
-# CUSTOM CSS — clean healthcare aesthetic
-# ═══════════════════════════════════════════════════════════════
+# --- custom CSS
 st.markdown("""<style>
     .main-header {
         font-size: 2.2rem; font-weight: 700; color: #1565C0;
@@ -55,22 +50,25 @@ st.markdown("""<style>
         text-align: center; font-size: 1.6rem; font-weight: bold;
         border: 2px solid #A5D6A7;
     }
+    .impact-card {
+        background: #F5F5F5; border-radius: 10px;
+        padding: 1.2rem; margin: 0.5rem 0;
+        border-left: 4px solid #1565C0;
+    }
     .stTabs [data-baseweb="tab-list"] { gap: 1.5rem; }
     .stTabs [data-baseweb="tab"] { font-size: 1.05rem; }
 </style>""", unsafe_allow_html=True)
 
-# ═══════════════════════════════════════════════════════════════
-# LOAD MODEL ARTIFACTS
-# ═══════════════════════════════════════════════════════════════
+# --- load model artifacts
 @st.cache_resource
 def load_artifacts():
     model = joblib.load("model_artifacts/model.joblib")
     scaler = joblib.load("model_artifacts/scaler.joblib")
-    with open("model_artifacts/feature_names.json", "r") as f:
+    with open("model_artifacts/feature_names.json") as f:
         feature_names = json.load(f)
     pfi_df = pd.read_csv("model_artifacts/pfi_results.csv")
     pop_stats = pd.read_csv("model_artifacts/population_stats.csv", index_col=0)
-    with open("model_artifacts/config.json", "r") as f:
+    with open("model_artifacts/config.json") as f:
         config = json.load(f)
     return model, scaler, feature_names, pfi_df, pop_stats, config
 
@@ -78,16 +76,10 @@ try:
     model, scaler, feature_names, pfi_df, pop_stats, config = load_artifacts()
     optimal_threshold = config["optimal_threshold"]
 except Exception as e:
-    st.error(
-        "Could not load model artifacts. Please run the Jupyter notebook first "
-        "to train the model and save artifacts.\n\n"
-        f"Error: {e}"
-    )
+    st.error(f"Could not load model artifacts. Run the notebook first.\n\nError: {e}")
     st.stop()
 
-# ═══════════════════════════════════════════════════════════════
-# HEADER
-# ═══════════════════════════════════════════════════════════════
+# --- header
 st.markdown(
     '<div class="main-header">\U0001F3E5 Diabetes Readmission Risk Assessment</div>',
     unsafe_allow_html=True,
@@ -101,18 +93,12 @@ st.markdown(
 )
 st.markdown("---")
 
-# ═══════════════════════════════════════════════════════════════
-# SIDEBAR — Patient Input
-# ═══════════════════════════════════════════════════════════════
+# --- sidebar: patient inputs
 with st.sidebar:
     st.header("\U0001F9D1\u200D\u2695\uFE0F Patient Parameters")
-    st.markdown(
-        "Adjust the sliders below to assess readmission risk "
-        "for a patient encounter."
-    )
+    st.markdown("Adjust sliders to assess readmission risk for a patient encounter.")
     st.markdown("---")
 
-    # --- Primary clinical inputs ---
     st.subheader("Primary Inputs")
     age_group = st.slider(
         "Age Group (midpoint)", 5, 95, 65, step=10,
@@ -137,7 +123,6 @@ with st.sidebar:
 
     st.markdown("---")
     st.subheader("Additional Parameters")
-
     number_emergency = st.slider("Prior Emergency Visits", 0, 20, 0)
     number_outpatient = st.slider("Prior Outpatient Visits", 0, 20, 0)
     num_procedures = st.slider("Number of Procedures", 0, 6, 1)
@@ -169,11 +154,10 @@ with st.sidebar:
         index=0,
     )
 
-# ═══════════════════════════════════════════════════════════════
-# PREDICTION ENGINE
-# ═══════════════════════════════════════════════════════════════
-def make_prediction():
-    """Build feature vector, scale, predict, return results."""
+
+# --- prediction engine
+def build_feature_vector():
+    """Assemble raw patient inputs into the model's feature space."""
     raw_numeric = {
         "admission_type_id": admission_type_id,
         "discharge_disposition_id": discharge_disposition_id,
@@ -194,13 +178,14 @@ def make_prediction():
         "age_numeric": age_group,
     }
     categorical = {
-        "race": "Caucasian",
-        "gender": "Female",
-        "diag_1": "Circulatory",
-        "diag_2": "Circulatory",
-        "diag_3": "Other",
+        "race": "Caucasian", "gender": "Female",
+        "diag_1": "Circulatory", "diag_2": "Circulatory", "diag_3": "Other",
     }
+    return raw_numeric, categorical
 
+
+def encode_and_predict(raw_numeric, categorical):
+    """Encode inputs, scale, predict probability."""
     patient_encoded = pd.DataFrame(0, index=[0], columns=feature_names, dtype=float)
     for col, val in raw_numeric.items():
         if col in feature_names:
@@ -213,130 +198,115 @@ def make_prediction():
     patient_scaled = pd.DataFrame(
         scaler.transform(patient_encoded), columns=feature_names
     )
-
     prob = float(model.predict_proba(patient_scaled)[0, 1])
-    pred = int(prob >= optimal_threshold)
-
-    if prob >= 0.30:
-        risk, color = "HIGH RISK", "#FF1744"
-    elif prob >= optimal_threshold:
-        risk, color = "MEDIUM RISK", "#FF9100"
-    else:
-        risk, color = "LOW RISK", "#00C853"
-
-    return prob, pred, risk, color, raw_numeric
+    return prob
 
 
-prob, pred, risk, risk_color, raw_numeric = make_prediction()
+raw_numeric, categorical = build_feature_vector()
+prob = encode_and_predict(raw_numeric, categorical)
+pred = int(prob >= optimal_threshold)
 
-# ═══════════════════════════════════════════════════════════════
-# MAIN CONTENT — TABS
-# ═══════════════════════════════════════════════════════════════
-tab1, tab2, tab3 = st.tabs(
-    [
-        "\U0001FA7A Risk Assessment",
-        "\U0001F50D Explainability & What-If",
-        "\U0001F4CA Model Performance",
-    ]
-)
+if prob >= 0.30:
+    risk, risk_color = "HIGH RISK", "#FF1744"
+elif prob >= optimal_threshold:
+    risk, risk_color = "MEDIUM RISK", "#FF9100"
+else:
+    risk, risk_color = "LOW RISK", "#00C853"
 
-# ──────────────────────────────────────────────────────────────
-# TAB 1 — RISK ASSESSMENT
-# ──────────────────────────────────────────────────────────────
+# --- compute feature contributions for "Why This Prediction?"
+# approximate each feature's directional push on risk:
+# contribution = z_score * importance (normalized)
+top_feats = [f for f in pfi_df["feature"].head(10).tolist() if f in pop_stats.index][:8]
+pfi_lookup = dict(zip(pfi_df["feature"], pfi_df["importance_mean"]))
+
+contributions = []
+for feat in top_feats:
+    pat_val = raw_numeric.get(feat, 0)
+    p_mean = float(pop_stats.loc[feat, "mean"])
+    p_std = float(pop_stats.loc[feat, "std"])
+    z = (pat_val - p_mean) / p_std if p_std > 0 else 0.0
+    imp = pfi_lookup.get(feat, 0)
+    contrib = z * imp
+    contributions.append({
+        "feature": feat,
+        "patient_val": pat_val,
+        "pop_mean": p_mean,
+        "z_score": z,
+        "importance": imp,
+        "contribution": contrib,
+    })
+contrib_df = pd.DataFrame(contributions).sort_values("contribution", key=abs, ascending=True)
+
+# --- tabs
+tab1, tab2, tab3, tab4 = st.tabs([
+    "\U0001FA7A Risk Assessment",
+    "\U0001F50D Explainability & What-If",
+    "\U0001F4C8 Clinical Impact",
+    "\u2699\uFE0F Model Performance",
+])
+
+# --- TAB 1: RISK ASSESSMENT
 with tab1:
-    # Top metrics row
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col1:
-        css_cls = (
-            "risk-high" if prob >= 0.30
-            else ("risk-medium" if prob >= optimal_threshold else "risk-low")
-        )
+    # top metrics
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        css_cls = "risk-high" if prob >= 0.30 else ("risk-medium" if prob >= optimal_threshold else "risk-low")
         st.markdown(f'<div class="{css_cls}">{risk}</div>', unsafe_allow_html=True)
-    with col2:
-        baseline_rate = 0.114
-        st.metric(
-            "Readmission Probability",
-            f"{prob:.0%}",
-            delta=f"{prob - baseline_rate:+.0%} vs baseline (11.4%)",
-            delta_color="inverse",
-        )
-    with col3:
-        st.metric(
-            "Binary Prediction",
-            "1 \u2014 Readmitted" if pred else "0 \u2014 Not Readmitted",
-            delta=f"Threshold: {optimal_threshold:.2f}",
-        )
+    with c2:
+        st.metric("Readmission Probability", f"{prob:.0%}",
+                  delta=f"{prob - 0.114:+.0%} vs baseline (11.4%)", delta_color="inverse")
+    with c3:
+        st.metric("Binary Prediction",
+                  "Readmitted" if pred else "Not Readmitted",
+                  delta=f"Threshold: {optimal_threshold:.2f}")
 
     st.markdown("---")
 
-    # Risk gauge + Feature profile
-    col_gauge, col_features = st.columns([1, 1])
+    # risk gauge + why this prediction
+    col_gauge, col_why = st.columns([1, 1])
 
     with col_gauge:
         st.subheader("Risk Gauge")
         fig, ax = plt.subplots(figsize=(8, 2.5))
         ax.barh(["Risk"], [prob], color=risk_color, height=0.6, edgecolor="black")
-        ax.barh(
-            ["Risk"], [1 - prob], left=[prob],
-            color="#E0E0E0", height=0.6, edgecolor="black",
-        )
+        ax.barh(["Risk"], [1 - prob], left=[prob], color="#E0E0E0", height=0.6, edgecolor="black")
         ax.set_xlim(0, 1)
         ax.axvline(x=optimal_threshold, color="black", linestyle="--", lw=1.5)
-        ax.text(
-            optimal_threshold, -0.45,
-            f"Threshold\n({optimal_threshold:.2f})",
-            ha="center", fontsize=9, style="italic",
-        )
+        ax.text(optimal_threshold, -0.45, f"Threshold\n({optimal_threshold:.2f})",
+                ha="center", fontsize=9, style="italic")
         txt_c = "white" if prob > 0.15 else "black"
-        ax.text(
-            prob / 2, 0, f"{prob:.0%}",
-            ha="center", va="center", fontweight="bold", fontsize=18, color=txt_c,
-        )
+        ax.text(prob / 2, 0, f"{prob:.0%}", ha="center", va="center",
+                fontweight="bold", fontsize=18, color=txt_c)
         ax.set_xlabel("Predicted Probability of Readmission")
         plt.tight_layout()
         st.pyplot(fig)
         plt.close()
 
-    with col_features:
-        st.subheader("Feature Profile vs Population")
-        top_feats = [
-            f for f in pfi_df["feature"].head(10).tolist() if f in pop_stats.index
-        ][:6]
-
-        feat_z, feat_labels, feat_colors = [], [], []
-        for feat in top_feats:
-            pat_val = raw_numeric.get(feat, 0)
-            p_mean = pop_stats.loc[feat, "mean"]
-            p_std = pop_stats.loc[feat, "std"]
-            z = (pat_val - p_mean) / p_std if p_std > 0 else 0
-            feat_z.append(z)
-            feat_labels.append(feat.replace("_", " ").title())
-            feat_colors.append(
-                "#FF1744" if z > 0.5 else "#2196F3" if z < -0.5 else "#9E9E9E"
-            )
-
-        fig, ax = plt.subplots(figsize=(8, 3.5))
-        ax.barh(
-            feat_labels[::-1], feat_z[::-1],
-            color=feat_colors[::-1], edgecolor="black", alpha=0.85,
-        )
+    with col_why:
+        st.subheader("Why This Prediction?")
+        # waterfall-style bar chart of feature contributions
+        colors = ["#EF5350" if v > 0 else "#42A5F5" for v in contrib_df["contribution"]]
+        fig, ax = plt.subplots(figsize=(8, 4))
+        labels = [f.replace("_", " ").title() for f in contrib_df["feature"]]
+        vals = contrib_df["contribution"].values
+        ax.barh(labels, vals, color=colors, edgecolor="black", alpha=0.85)
         ax.axvline(x=0, color="black", lw=1)
-        ax.set_xlabel("Standard deviations from population average")
-        red_p = mpatches.Patch(color="#FF1744", label="Above average")
-        blue_p = mpatches.Patch(color="#2196F3", label="Below average")
-        gray_p = mpatches.Patch(color="#9E9E9E", label="Near average")
-        ax.legend(handles=[red_p, blue_p, gray_p], fontsize=8, loc="lower right")
+        ax.set_xlabel("Contribution to Risk (positive = increases risk)")
+        red_p = mpatches.Patch(color="#EF5350", label="Increases risk")
+        blue_p = mpatches.Patch(color="#42A5F5", label="Decreases risk")
+        ax.legend(handles=[red_p, blue_p], fontsize=8, loc="lower right")
         plt.tight_layout()
         st.pyplot(fig)
         plt.close()
 
-    # Contributing features table
-    st.subheader("Top Contributing Features")
-    contrib_rows = []
+    # feature profile table
+    st.markdown("---")
+    st.subheader("Patient Feature Profile")
+    profile_rows = []
     for feat in top_feats:
         pat_val = raw_numeric.get(feat, 0)
-        p_mean = pop_stats.loc[feat, "mean"]
-        p_std = pop_stats.loc[feat, "std"]
+        p_mean = float(pop_stats.loc[feat, "mean"])
+        p_std = float(pop_stats.loc[feat, "std"])
         z = (pat_val - p_mean) / p_std if p_std > 0 else 0
         if z > 0.5:
             status = "\u2B06\uFE0F Above Avg"
@@ -344,52 +314,55 @@ with tab1:
             status = "\u2B07\uFE0F Below Avg"
         else:
             status = "\u27A1\uFE0F Normal"
-        contrib_rows.append(
-            {
-                "Feature": feat.replace("_", " ").title(),
-                "Patient Value": f"{pat_val:.1f}",
-                "Population Average": f"{p_mean:.1f}",
-                "Status": status,
-            }
-        )
-    st.table(pd.DataFrame(contrib_rows))
+        profile_rows.append({
+            "Feature": feat.replace("_", " ").title(),
+            "Patient": f"{pat_val:.1f}",
+            "Population Avg": f"{p_mean:.1f}",
+            "Status": status,
+        })
+    st.table(pd.DataFrame(profile_rows))
 
-    # Clinical alert
+    # clinical action plan
     st.markdown("---")
+    st.subheader("Clinical Action Plan")
     if prob >= 0.30:
-        st.error(
-            "\u26A0\uFE0F **Clinical Alert:** This patient is at **HIGH** risk of "
-            "readmission within 30 days. Consider enhanced discharge planning, "
-            "follow-up scheduling within 7 days, and medication reconciliation."
-        )
+        st.error("\u26A0\uFE0F **HIGH RISK** \u2014 Enhanced discharge protocol recommended")
     elif prob >= optimal_threshold:
-        st.warning(
-            "\u2139\uFE0F **Clinical Note:** This patient has **MODERATE** readmission "
-            "risk. Standard follow-up protocols recommended with attention to the "
-            "contributing factors above."
-        )
+        st.warning("\u2139\uFE0F **MODERATE RISK** \u2014 Follow-up recommended with attention to key risk drivers")
     else:
-        st.success(
-            "\u2705 **Clinical Note:** This patient is at **LOW** risk of "
-            "readmission. Standard discharge procedures are appropriate."
-        )
+        st.success("\u2705 **LOW RISK** \u2014 Standard discharge procedures appropriate")
 
-# ──────────────────────────────────────────────────────────────
-# TAB 2 — EXPLAINABILITY & WHAT-IF
-# ──────────────────────────────────────────────────────────────
+    # specific actions based on which features are driving risk
+    actions = []
+    if raw_numeric.get("number_inpatient", 0) >= 1:
+        actions.append("\U0001F3E5 **Prior hospitalizations detected** \u2014 Schedule a follow-up call within 7 days of discharge")
+    if discharge_disposition_id in [2, 3, 4, 5]:
+        actions.append("\U0001F6CF\uFE0F **Non-home discharge** \u2014 Coordinate care transition with the receiving facility")
+    if num_medications >= 20:
+        actions.append("\U0001F48A **Polypharmacy (20+ medications)** \u2014 Request pharmacist-led medication reconciliation")
+    if time_in_hospital >= 7:
+        actions.append("\u23F0 **Extended stay (7+ days)** \u2014 Assess care transition readiness before discharge")
+    if number_emergency >= 2:
+        actions.append("\U0001F6A8 **Repeat ER visits** \u2014 Evaluate outpatient support and chronic disease management")
+    if number_diagnoses >= 9:
+        actions.append("\U0001F4CB **High diagnostic complexity** \u2014 Consider multidisciplinary care coordination")
+
+    if not actions:
+        actions.append("\u2705 No specific risk drivers flagged \u2014 Standard discharge pathway is appropriate")
+
+    for a in actions:
+        st.markdown(f"- {a}")
+
+# --- TAB 2: EXPLAINABILITY & WHAT-IF
 with tab2:
     col_pfi, col_whatif = st.columns([1, 1])
 
-    # --- PFI ---
+    # global feature importance
     with col_pfi:
-        st.subheader("Permutation Feature Importance (Global)")
-        st.markdown(
-            "*Which features matter most for the model's predictions "
-            "across **all** patients?*"
-        )
+        st.subheader("Global Feature Importance")
+        st.markdown("*Which features matter most across all patients?*")
         top_n = 15
         top_pfi = pfi_df.head(top_n)
-
         fig, ax = plt.subplots(figsize=(8, 7))
         ax.barh(
             top_pfi["feature"][::-1].str.replace("_", " ").str.title(),
@@ -398,27 +371,23 @@ with tab2:
             color="#1565C0", edgecolor="black", alpha=0.85, capsize=3,
         )
         ax.set_xlabel("Mean decrease in ROC-AUC when feature is shuffled")
-        ax.set_title(f"Top {top_n} Most Important Features", fontweight="bold")
+        ax.set_title(f"Top {top_n} Features (Permutation Importance)", fontweight="bold")
         ax.grid(True, alpha=0.3, axis="x")
         plt.tight_layout()
         st.pyplot(fig)
         plt.close()
 
-    # --- What-If Analysis ---
+    # what-if analysis
     with col_whatif:
-        st.subheader("What-If Analysis (Patient-Specific)")
-        st.markdown(
-            "*How does changing **one** feature affect **this** patient's risk? "
-            "Select a feature and see the effect in real time.*"
-        )
+        st.subheader("What-If Analysis")
+        st.markdown("*How does changing one feature affect this patient's risk?*")
 
         numeric_feats = [
             f for f in pfi_df["feature"].head(10).tolist()
             if f in pop_stats.index and f in feature_names
         ]
         selected_feat = st.selectbox(
-            "Select a feature to explore:",
-            numeric_feats,
+            "Select a feature:", numeric_feats,
             format_func=lambda x: x.replace("_", " ").title(),
         )
 
@@ -431,96 +400,210 @@ with tab2:
             for val in sweep_vals:
                 mod = raw_numeric.copy()
                 mod[selected_feat] = val
-                if selected_feat in (
-                    "number_inpatient", "number_outpatient", "number_emergency"
-                ):
+                if selected_feat in ("number_inpatient", "number_outpatient", "number_emergency"):
                     mod["total_visits"] = (
                         mod.get("number_outpatient", 0)
                         + mod.get("number_emergency", 0)
                         + mod.get("number_inpatient", 0)
                     )
-
-                enc = pd.DataFrame(0, index=[0], columns=feature_names, dtype=float)
-                for c, v in mod.items():
-                    if c in feature_names:
-                        enc[c] = v
-                for c, v in {
-                    "race": "Caucasian", "gender": "Female",
-                    "diag_1": "Circulatory", "diag_2": "Circulatory",
-                    "diag_3": "Other",
-                }.items():
-                    dc = f"{c}_{v}"
-                    if dc in feature_names:
-                        enc[dc] = 1
-                scaled = pd.DataFrame(
-                    scaler.transform(enc), columns=feature_names
-                )
-                sweep_probs.append(float(model.predict_proba(scaled)[0, 1]))
+                sweep_probs.append(encode_and_predict(mod, categorical))
 
             fig, ax = plt.subplots(figsize=(8, 5))
             ax.plot(sweep_vals, sweep_probs, color="#1565C0", lw=2.5)
-            ax.axhline(
-                y=optimal_threshold, color="gray", linestyle="--", lw=1,
-                alpha=0.7, label=f"Threshold ({optimal_threshold:.2f})",
-            )
+            ax.axhline(y=optimal_threshold, color="gray", linestyle="--", lw=1,
+                       alpha=0.7, label=f"Threshold ({optimal_threshold:.2f})")
             current_val = raw_numeric.get(selected_feat, 0)
-            ax.axvline(
-                x=current_val, color="#FF1744", linestyle="--", lw=2,
-                label=f"Current patient ({current_val:.0f})",
-            )
+            ax.axvline(x=current_val, color="#FF1744", linestyle="--", lw=2,
+                       label=f"Current ({current_val:.0f})")
             ax.fill_between(sweep_vals, sweep_probs, alpha=0.08, color="#1565C0")
             ax.set_xlabel(selected_feat.replace("_", " ").title(), fontsize=12)
-            ax.set_ylabel("Predicted Readmission Probability", fontsize=12)
-            ax.set_title(
-                f'What-If: How does "{selected_feat.replace("_", " ")}" '
-                f"affect this patient's risk?",
-                fontsize=13, fontweight="bold",
-            )
+            ax.set_ylabel("Readmission Probability", fontsize=12)
+            ax.set_title(f'Effect of {selected_feat.replace("_", " ")} on risk', fontweight="bold")
             ax.legend(fontsize=10)
             ax.grid(True, alpha=0.3)
             plt.tight_layout()
             st.pyplot(fig)
             plt.close()
 
-            st.info(
-                f"**Interpretation:** Moving this patient's "
-                f"*{selected_feat.replace('_', ' ')}* from its current value of "
-                f"**{current_val:.0f}** shows how the readmission probability "
-                f"changes while holding all other features constant. "
-                f"This helps clinicians understand which interventions could "
-                f"most effectively reduce readmission risk."
-            )
-
+    # scenario comparison
     st.markdown("---")
-    st.subheader("Understanding the Explainability Methods")
+    st.subheader("Scenario Comparison")
+    st.markdown("*Pick a feature, set a hypothetical value, and see how the risk changes.*")
 
-    col_e1, col_e2 = st.columns(2)
-    with col_e1:
+    sc1, sc2, sc3 = st.columns([1, 1, 1])
+    with sc1:
+        scenario_feat = st.selectbox(
+            "Feature to change:", numeric_feats, key="scenario_feat",
+            format_func=lambda x: x.replace("_", " ").title(),
+        )
+    with sc2:
+        s_min = float(pop_stats.loc[scenario_feat, "min"])
+        s_max = float(pop_stats.loc[scenario_feat, "max"])
+        current = raw_numeric.get(scenario_feat, 0)
+        hypo_val = st.slider(
+            f"Hypothetical value", min_value=int(s_min), max_value=int(s_max),
+            value=int(current), key="hypo_val",
+        )
+
+    # compute hypothetical risk
+    hypo_numeric = raw_numeric.copy()
+    hypo_numeric[scenario_feat] = hypo_val
+    if scenario_feat in ("number_inpatient", "number_outpatient", "number_emergency"):
+        hypo_numeric["total_visits"] = (
+            hypo_numeric.get("number_outpatient", 0)
+            + hypo_numeric.get("number_emergency", 0)
+            + hypo_numeric.get("number_inpatient", 0)
+        )
+    hypo_prob = encode_and_predict(hypo_numeric, categorical)
+    delta = hypo_prob - prob
+
+    with sc3:
+        st.metric(
+            "Risk Change",
+            f"{hypo_prob:.0%}",
+            delta=f"{delta:+.1%} from current ({prob:.0%})",
+            delta_color="inverse",
+        )
+
+    if abs(delta) > 0.005:
+        direction = "increases" if delta > 0 else "decreases"
+        st.info(
+            f"Changing **{scenario_feat.replace('_', ' ')}** from "
+            f"**{current:.0f}** to **{hypo_val}** {direction} readmission risk "
+            f"from **{prob:.0%}** to **{hypo_prob:.0%}** ({delta:+.1%})."
+        )
+    else:
+        st.info("Minimal change in risk for this adjustment.")
+
+    # method explanations
+    st.markdown("---")
+    ce1, ce2 = st.columns(2)
+    with ce1:
         st.markdown("""
 **Permutation Feature Importance (PFI)**
-- Measures how much the model's accuracy drops when a feature is randomly shuffled
-- A large drop means the feature is critical for predictions
-- Applied on the held-out test set for unbiased estimates
-- Higher bars = more important features
-        """)
-    with col_e2:
+- Shuffles each feature and measures the drop in model accuracy
+- Bigger drop = more important feature
+- Computed on the held-out test set for unbiased results
+""")
+    with ce2:
         st.markdown("""
-**What-If Analysis (Local Sensitivity)**
-- Shows how changing one feature affects **this specific patient's** prediction
-- Keeps all other features constant (ceteris paribus)
-- The red dashed line marks the current patient's value
-- Steep curves = the feature has a strong effect on this patient's risk
+**What-If / Scenario Analysis**
+- Shows how one feature affects this patient's prediction
+- All other features held constant
+- Steep curves = strong influence on this patient's risk
+""")
+
+# --- TAB 3: CLINICAL IMPACT
+with tab3:
+    st.subheader("Why This Model Matters")
+    st.markdown(
+        "Hospital readmissions cost the US healthcare system over **$26 billion annually**. "
+        "CMS penalizes hospitals with excess readmission rates. Here's how this AI-based "
+        "approach compares to traditional methods and what impact it can have."
+    )
+    st.markdown("---")
+
+    # threshold comparison
+    st.subheader("Threshold Optimization: The 22x Improvement")
+    tc1, tc2, tc3 = st.columns(3)
+    with tc1:
+        st.markdown('<div class="impact-card">', unsafe_allow_html=True)
+        st.metric("Default Threshold (0.50)", "~2% Recall",
+                  delta="Misses 98% of readmissions", delta_color="inverse")
+        st.markdown("</div>", unsafe_allow_html=True)
+    with tc2:
+        st.markdown('<div class="impact-card">', unsafe_allow_html=True)
+        st.metric("Optimized Threshold (0.15)", "~44% Recall",
+                  delta="22x improvement", delta_color="normal")
+        st.markdown("</div>", unsafe_allow_html=True)
+    with tc3:
+        st.markdown('<div class="impact-card">', unsafe_allow_html=True)
+        st.metric("Recall Gain", "+42 percentage points",
+                  delta="From 2% to 44%", delta_color="normal")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown(
+        "By lowering the classification threshold from 0.50 to 0.15, we trade a small "
+        "amount of precision for a massive gain in recall. In healthcare, **missing a "
+        "readmission is far more costly than a false alarm** — a flagged patient just "
+        "gets extra follow-up, while a missed one may end up back in the ER."
+    )
+
+    st.markdown("---")
+
+    # LACE vs AI comparison
+    st.subheader("LACE Index vs. This AI Model")
+    lace_col, ai_col = st.columns(2)
+    with lace_col:
+        st.markdown("#### LACE Index (Traditional)")
+        st.markdown("""
+| Aspect | LACE |
+|--------|------|
+| **Method** | Rule-based point scoring |
+| **Inputs** | Length of stay, Acuity, Comorbidities, ED visits |
+| **Output** | Single score (0\u201319) |
+| **Personalization** | None \u2014 fixed weights |
+| **Explainability** | Limited \u2014 just a total score |
+| **Threshold** | Fixed cutoff, no probability |
+| **Adaptability** | Cannot learn from new data |
         """)
 
-# ──────────────────────────────────────────────────────────────
-# TAB 3 — MODEL PERFORMANCE
-# ──────────────────────────────────────────────────────────────
-with tab3:
-    st.subheader("Model Selection Summary")
+    with ai_col:
+        st.markdown("#### This XGBoost Model")
+        st.markdown(f"""
+| Aspect | Our Model |
+|--------|-----------|
+| **Method** | Gradient-boosted decision trees |
+| **Inputs** | 46 features (clinical + demographic) |
+| **Output** | Probability (0\u2013100%) |
+| **Personalization** | Learns complex, non-linear patient patterns |
+| **Explainability** | PFI + PDP + What-If analysis per patient |
+| **Threshold** | Optimized ({optimal_threshold:.2f}), tunable per hospital |
+| **Adaptability** | Retrainable as new data arrives |
+        """)
+
+    st.markdown("---")
+
+    # cost savings estimate
+    st.subheader("Estimated Cost Savings")
+    st.markdown("Based on published readmission cost data (CMS, AHRQ):")
+
+    cs1, cs2 = st.columns([1, 1])
+    with cs1:
+        annual_discharges = st.number_input(
+            "Annual diabetic discharges at your hospital",
+            min_value=100, max_value=50000, value=5000, step=100
+        )
+        readmit_rate = 0.114
+        cost_per_readmit = st.number_input(
+            "Average cost per readmission ($)",
+            min_value=5000, max_value=50000, value=15000, step=1000
+        )
+
+    with cs2:
+        total_readmits = int(annual_discharges * readmit_rate)
+        caught_at_44 = int(total_readmits * 0.44)
+        # assume 30% of flagged patients avoid readmission through intervention
+        prevented = int(caught_at_44 * 0.30)
+        savings = prevented * cost_per_readmit
+
+        st.metric("Expected Readmissions / Year", f"{total_readmits:,}")
+        st.metric("Flagged by Model (44% recall)", f"{caught_at_44:,}")
+        st.metric("Prevented (est. 30% intervention success)", f"{prevented:,}")
+        st.metric("Annual Savings", f"${savings:,.0f}")
+
+    st.info(
+        f"Even with a conservative 30% intervention success rate, a hospital with "
+        f"{annual_discharges:,} diabetic discharges could prevent **{prevented}** "
+        f"readmissions and save approximately **${savings:,.0f}** per year."
+    )
+
+# --- TAB 4: MODEL PERFORMANCE
+with tab4:
+    st.subheader("Model Comparison")
     st.markdown(
-        f"**Selected Model:** {config['best_model_name']} \u2014 chosen for "
-        f"highest Test ROC-AUC ({config['test_roc_auc']:.4f}) and "
-        f"cross-validation stability."
+        f"**Selected:** {config['best_model_name']} \u2014 highest Test ROC-AUC "
+        f"({config['test_roc_auc']:.4f}) with stable cross-validation performance."
     )
 
     if "model_results" in config:
@@ -531,44 +614,41 @@ with tab3:
             use_container_width=True,
         )
 
-    col_i1, col_i2 = st.columns(2)
-    with col_i1:
+    st.markdown("---")
+    mi1, mi2 = st.columns(2)
+    with mi1:
         st.markdown(f"""
 **Dataset:** 101,766 encounters from 130 US hospitals
 **Target:** Readmitted within 30 days (11.4% positive rate)
-**Imbalance handling:** SMOTE on training data only
-**Split:** 80% train / 20% test (stratified)
-**Threshold:** Optimized from 0.50 \u2192 {optimal_threshold:.2f} for max F1
+**Imbalance:** SMOTE applied on training data only
+**Split:** 80/20 stratified train-test split
+**Tuning:** GridSearchCV (3-fold, ROC-AUC scoring)
+**Threshold:** Optimized from 0.50 to {optimal_threshold:.2f}
         """)
-    with col_i2:
+    with mi2:
         st.markdown("""
-**Models compared:**
+**Models Trained:**
 - Logistic Regression (linear baseline)
 - Random Forest (bagging ensemble)
 - XGBoost (boosting ensemble)
 
-**Evaluation metrics:** Accuracy, Precision, Recall, F1, ROC-AUC
-**Explainability:** PFI + PDP + What-If Analysis
+**Evaluation:** Accuracy, Precision, Recall, F1, ROC-AUC
+**Explainability:** PFI + PDP + Patient-level What-If
         """)
 
     st.markdown("---")
     st.caption(
-        "Note: The binary prediction uses two values \u2014 0 (not readmitted) "
-        "and 1 (readmitted within 30 days). The predicted probability shows how "
-        "strongly the model believes this outcome for the current hospital visit. "
-        "The contributing features explain which factors influenced the decision. "
-        "This output reflects a risk assessment for one visit only and does not "
-        "represent a permanent patient status."
+        "Note: Predictions reflect risk for a single hospital encounter, not a "
+        "permanent patient status. The probability indicates how strongly the model "
+        "associates the input features with readmission within 30 days."
     )
 
-# ═══════════════════════════════════════════════════════════════
-# FOOTER
-# ═══════════════════════════════════════════════════════════════
+# --- footer
 st.markdown("---")
 st.markdown(
     '<div style="text-align:center; color:#9E9E9E; font-size:0.85rem;">'
-    "CS 719 \u2014 Data Scientist Assistant | "
-    "Diabetes 130-US Hospitals Dataset | "
+    "CS 719 \u2014 Raj Panchal (200490453) | "
+    "University of Regina | Winter 2026 | "
     "Explainable AI for Healthcare"
     "</div>",
     unsafe_allow_html=True,

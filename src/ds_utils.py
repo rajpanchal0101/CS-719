@@ -1,7 +1,8 @@
 """
-Data Science utility functions for the Diabetes 130-US Hospitals project.
-Provides EDA, visualization, preprocessing, model evaluation, and
-explainability helpers for hospital readmission prediction.
+Utility functions for the Hospital Readmission Prediction project.
+EDA, visualization, preprocessing, model evaluation, and explainability.
+
+CS 719 — Raj Panchal (200490453) — University of Regina
 """
 
 import pandas as pd
