@@ -26,9 +26,10 @@ st.set_page_config(
 # --- custom CSS
 st.markdown("""<style>
     .main-header {
-        font-size: 2.4rem; font-weight: 800; color: #0D47A1;
-        text-align: center; padding: 0.8rem 0 0.2rem 0;
+        font-size: 3rem; font-weight: 800; color: #FFFFFF;
+        text-align: center; padding: 1rem 0 0.3rem 0;
         letter-spacing: -0.5px;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
     .sub-header {
         font-size: 1.05rem; color: #607D8B;
@@ -87,10 +88,11 @@ st.markdown("""<style>
         border: 1px solid #64B5F6; margin: 0.5rem 0;
     }
     .verdict-box {
-        background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+        background: #F5F5F5;
         border-radius: 12px; padding: 1.2rem; text-align: center;
-        border: 2px solid #66BB6A; margin-top: 1rem;
+        border: 2px solid #1565C0; margin-top: 1rem;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        color: #212121;
     }
     .stTabs [data-baseweb="tab-list"] { gap: 1.5rem; }
     .stTabs [data-baseweb="tab"] { font-size: 1.05rem; }
@@ -801,7 +803,7 @@ with tab4:
         res_df = pd.DataFrame(config["model_results"]).T
         res_df.columns = [c.replace("_", " ").title() for c in res_df.columns]
         st.dataframe(
-            res_df.style.highlight_max(axis=0, color="#C8E6C9").format("{:.4f}"),
+            res_df.style.highlight_max(axis=0, props="background-color: #BBDEFB; color: #0D47A1; font-weight: bold").format("{:.4f}"),
             use_container_width=True,
         )
 
