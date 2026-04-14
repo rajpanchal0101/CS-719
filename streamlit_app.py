@@ -26,38 +26,80 @@ st.set_page_config(
 # --- custom CSS
 st.markdown("""<style>
     .main-header {
-        font-size: 2.2rem; font-weight: 700; color: #1565C0;
-        text-align: center; padding: 0.5rem 0;
+        font-size: 2.4rem; font-weight: 800; color: #0D47A1;
+        text-align: center; padding: 0.8rem 0 0.2rem 0;
+        letter-spacing: -0.5px;
     }
     .sub-header {
-        font-size: 1.1rem; color: #546E7A;
+        font-size: 1.05rem; color: #607D8B;
         text-align: center; margin-bottom: 1.5rem;
+        line-height: 1.6;
     }
     .risk-high {
-        background-color: #FFCDD2; color: #B71C1C;
-        padding: 1.2rem; border-radius: 12px;
+        background: linear-gradient(135deg, #FFCDD2 0%, #EF9A9A 100%);
+        color: #B71C1C; padding: 1.4rem; border-radius: 12px;
         text-align: center; font-size: 1.6rem; font-weight: bold;
         border: 2px solid #EF9A9A;
+        box-shadow: 0 2px 8px rgba(183,28,28,0.15);
     }
     .risk-medium {
-        background-color: #FFE0B2; color: #E65100;
-        padding: 1.2rem; border-radius: 12px;
+        background: linear-gradient(135deg, #FFE0B2 0%, #FFCC80 100%);
+        color: #E65100; padding: 1.4rem; border-radius: 12px;
         text-align: center; font-size: 1.6rem; font-weight: bold;
         border: 2px solid #FFCC80;
+        box-shadow: 0 2px 8px rgba(230,81,0,0.15);
     }
     .risk-low {
-        background-color: #C8E6C9; color: #1B5E20;
-        padding: 1.2rem; border-radius: 12px;
+        background: linear-gradient(135deg, #C8E6C9 0%, #A5D6A7 100%);
+        color: #1B5E20; padding: 1.4rem; border-radius: 12px;
         text-align: center; font-size: 1.6rem; font-weight: bold;
         border: 2px solid #A5D6A7;
+        box-shadow: 0 2px 8px rgba(27,94,32,0.15);
     }
     .impact-card {
         background: #F5F5F5; border-radius: 10px;
         padding: 1.2rem; margin: 0.5rem 0;
         border-left: 4px solid #1565C0;
     }
+    .compare-card {
+        background: #FAFAFA; border-radius: 12px;
+        padding: 1.5rem; border: 1px solid #E0E0E0;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    .compare-header-lace {
+        font-size: 1.2rem; font-weight: 700; color: #795548;
+        text-align: center; margin-bottom: 0.8rem;
+        padding-bottom: 0.5rem; border-bottom: 2px solid #BCAAA4;
+    }
+    .compare-header-ai {
+        font-size: 1.2rem; font-weight: 700; color: #0D47A1;
+        text-align: center; margin-bottom: 0.8rem;
+        padding-bottom: 0.5rem; border-bottom: 2px solid #64B5F6;
+    }
+    .lace-score-box {
+        background: linear-gradient(135deg, #EFEBE9 0%, #D7CCC8 100%);
+        border-radius: 10px; padding: 1rem; text-align: center;
+        border: 1px solid #BCAAA4; margin: 0.5rem 0;
+    }
+    .ai-score-box {
+        background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+        border-radius: 10px; padding: 1rem; text-align: center;
+        border: 1px solid #64B5F6; margin: 0.5rem 0;
+    }
+    .verdict-box {
+        background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+        border-radius: 12px; padding: 1.2rem; text-align: center;
+        border: 2px solid #66BB6A; margin-top: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
     .stTabs [data-baseweb="tab-list"] { gap: 1.5rem; }
     .stTabs [data-baseweb="tab"] { font-size: 1.05rem; }
+    div[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #F5F7FA 0%, #E8EDF2 100%);
+    }
+    div[data-testid="stSidebar"] h1, div[data-testid="stSidebar"] h2 {
+        color: #0D47A1;
+    }
 </style>""", unsafe_allow_html=True)
 
 # --- load model artifacts
@@ -563,6 +605,154 @@ with tab3:
 | **Adaptability** | Retrainable as new data arrives |
         """)
 
+    # --- LACE vs AI: Live side-by-side comparison ---
+    st.markdown("---")
+    st.subheader("Live Comparison: This Patient")
+    st.markdown("*Same patient inputs evaluated by both methods side by side.*")
+
+    # compute LACE score from current patient inputs
+    def compute_lace(los, admission_type, n_diagnoses, n_emergency):
+        # L — Length of Stay
+        if los < 1:
+            l_score = 0
+        elif los == 1:
+            l_score = 1
+        elif los == 2:
+            l_score = 2
+        elif los == 3:
+            l_score = 3
+        elif los <= 6:
+            l_score = 4
+        elif los <= 13:
+            l_score = 5
+        else:
+            l_score = 7
+
+        # A — Acuity of Admission (emergency = 3, else 0)
+        a_score = 3 if admission_type == 1 else 0
+
+        # C — Comorbidity (approximated from number of diagnoses)
+        if n_diagnoses <= 1:
+            c_score = 0
+        elif n_diagnoses <= 3:
+            c_score = 1
+        elif n_diagnoses <= 5:
+            c_score = 2
+        elif n_diagnoses <= 7:
+            c_score = 3
+        else:
+            c_score = 5
+
+        # E — Emergency Department visits (prior 6 months)
+        e_score = min(n_emergency, 4)
+
+        total = l_score + a_score + c_score + e_score
+        return total, l_score, a_score, c_score, e_score
+
+    lace_total, l_sc, a_sc, c_sc, e_sc = compute_lace(
+        time_in_hospital, admission_type_id, number_diagnoses, number_emergency
+    )
+    lace_risk = "High Risk" if lace_total >= 10 else "Low Risk"
+
+    lc1, lc2 = st.columns(2)
+
+    with lc1:
+        st.markdown('<div class="compare-card">', unsafe_allow_html=True)
+        st.markdown('<div class="compare-header-lace">LACE Index</div>', unsafe_allow_html=True)
+
+        st.markdown(f"""
+| Component | Input | Score |
+|-----------|-------|-------|
+| **L** — Length of Stay | {time_in_hospital} days | {l_sc} |
+| **A** — Acuity (Emergency) | {"Yes" if admission_type_id == 1 else "No"} | {a_sc} |
+| **C** — Comorbidity | {number_diagnoses} diagnoses | {c_sc} |
+| **E** — ED Visits | {number_emergency} visits | {e_sc} |
+        """)
+
+        lace_color = "#B71C1C" if lace_total >= 10 else "#1B5E20"
+        st.markdown(
+            f'<div class="lace-score-box">'
+            f'<span style="font-size:2.2rem;font-weight:800;color:{lace_color};">{lace_total}</span>'
+            f'<span style="font-size:1rem;color:#795548;"> / 19</span><br>'
+            f'<span style="font-size:1.1rem;font-weight:600;color:{lace_color};">{lace_risk}</span><br>'
+            f'<span style="font-size:0.8rem;color:#9E9E9E;">Threshold: 10+</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<p style="color:#9E9E9E;font-size:0.85rem;text-align:center;margin-top:0.5rem;">'
+            'No probability estimate. No feature-level explanation.<br>'
+            'Fixed weights — cannot adapt to new data.</p>',
+            unsafe_allow_html=True,
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with lc2:
+        st.markdown('<div class="compare-card">', unsafe_allow_html=True)
+        st.markdown('<div class="compare-header-ai">XGBoost AI Model</div>', unsafe_allow_html=True)
+
+        # top 4 contributing features for this patient
+        top4 = contrib_df.tail(4)
+        feat_rows = ""
+        for _, row in top4.iterrows():
+            direction = "+" if row["contribution"] > 0 else "-"
+            feat_rows += f"| **{row['feature'].replace('_', ' ').title()}** | {row['patient_val']:.0f} | {direction} |\n"
+
+        st.markdown(f"""
+| Top Feature | Value | Effect |
+|-------------|-------|--------|
+{feat_rows}        """)
+
+        ai_color = risk_color
+        st.markdown(
+            f'<div class="ai-score-box">'
+            f'<span style="font-size:2.2rem;font-weight:800;color:{ai_color};">{prob:.0%}</span><br>'
+            f'<span style="font-size:1.1rem;font-weight:600;color:{ai_color};">{risk}</span><br>'
+            f'<span style="font-size:0.8rem;color:#9E9E9E;">Threshold: {optimal_threshold:.2f}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<p style="color:#9E9E9E;font-size:0.85rem;text-align:center;margin-top:0.5rem;">'
+            'Calibrated probability. Feature-level explanations.<br>'
+            'What-If analysis. Retrainable on new data.</p>',
+            unsafe_allow_html=True,
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # verdict
+    if lace_total < 10 and prob >= optimal_threshold:
+        verdict_text = (
+            "LACE classifies this patient as <b>Low Risk</b>, but our model detects a "
+            f"<b>{prob:.0%} readmission probability ({risk})</b>. "
+            "The AI model captures risk factors that LACE's fixed scoring misses."
+        )
+    elif lace_total >= 10 and prob < optimal_threshold:
+        verdict_text = (
+            f"LACE flags this patient as <b>High Risk</b> (score {lace_total}), "
+            f"but our model estimates only <b>{prob:.0%} probability ({risk})</b>. "
+            "The AI model's richer feature set provides a more nuanced assessment."
+        )
+    elif lace_total >= 10 and prob >= optimal_threshold:
+        verdict_text = (
+            f"Both methods agree this patient is <b>at risk</b>. "
+            f"But our model goes further — it quantifies the risk at <b>{prob:.0%}</b> "
+            f"and explains <i>which factors</i> are driving it."
+        )
+    else:
+        verdict_text = (
+            f"Both methods agree this patient is <b>lower risk</b>. "
+            f"Our model provides additional confidence with a precise <b>{prob:.0%}</b> estimate "
+            f"and a full feature-level breakdown."
+        )
+
+    st.markdown(
+        f'<div class="verdict-box">'
+        f'<span style="font-size:1.1rem;">{verdict_text}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
     st.markdown("---")
 
     # cost savings estimate
@@ -647,10 +837,18 @@ with tab4:
 # --- footer
 st.markdown("---")
 st.markdown(
-    '<div style="text-align:center; color:#9E9E9E; font-size:0.85rem;">'
-    "CS 719 \u2014 Raj Panchal (200490453) | "
-    "University of Regina | Winter 2026 | "
-    "Explainable AI for Healthcare"
+    '<div style="text-align:center; padding: 1rem 0;">'
+    '<span style="color:#90A4AE; font-size:0.85rem;">'
+    "Predictive Analytics & Explainable AI for Hospital Readmission Risk"
+    "</span><br>"
+    '<span style="color:#B0BEC5; font-size:0.78rem;">'
+    "CS 719 \u2014 Data Science Project \u2014 Raj Panchal (200490453) \u2014 "
+    "University of Regina \u2014 Winter 2026"
+    "</span><br>"
+    '<span style="color:#CFD8DC; font-size:0.72rem;">'
+    "Built with XGBoost, Streamlit & Python \u2014 "
+    "Dataset: 101,766 patient encounters from 130 US hospitals"
+    "</span>"
     "</div>",
     unsafe_allow_html=True,
 )
