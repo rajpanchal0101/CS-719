@@ -1,9 +1,10 @@
 """
-Hospital Readmission Risk Dashboard
-Explainable AI for Clinical Decision Support
+Hospital Readmission Risk Assessment Dashboard
+Predictive Analytics & Explainable AI for Clinical Decision Support
 
-CS 719 — Raj Panchal (200490453) — University of Regina
-Dataset: Diabetes 130-US Hospitals (101,766 encounters)
+CS 719 — Data Science Project
+Raj Panchal (200490453) — University of Regina
+Dataset: 130-US Hospitals (101,766 patient encounters)
 """
 
 import streamlit as st
@@ -16,7 +17,7 @@ import joblib
 
 # --- page config
 st.set_page_config(
-    page_title="Readmission Risk Dashboard",
+    page_title="Readmission Risk — CS 719 Raj Panchal",
     page_icon="\U0001F3E5",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -81,13 +82,13 @@ except Exception as e:
 
 # --- header
 st.markdown(
-    '<div class="main-header">\U0001F3E5 Diabetes Readmission Risk Assessment</div>',
+    '<div class="main-header">\U0001F3E5 Hospital Readmission Risk Assessment</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
     '<div class="sub-header">'
-    "Explainable AI for Clinical Decision Support \u2014 "
-    "Diabetes 130-US Hospitals"
+    "Predictive Analytics & Explainable AI for Clinical Decision Support<br>"
+    "CS 719 \u2014 Raj Panchal (200490453) \u2014 University of Regina"
     "</div>",
     unsafe_allow_html=True,
 )
@@ -274,7 +275,7 @@ with tab1:
         ax.axvline(x=optimal_threshold, color="black", linestyle="--", lw=1.5)
         ax.text(optimal_threshold, -0.45, f"Threshold\n({optimal_threshold:.2f})",
                 ha="center", fontsize=9, style="italic")
-        txt_c = "white" if prob > 0.15 else "black"
+        txt_c = "white" if prob > 0.20 else "black"
         ax.text(prob / 2, 0, f"{prob:.0%}", ha="center", va="center",
                 fontweight="bold", fontsize=18, color=txt_c)
         ax.set_xlabel("Predicted Probability of Readmission")
@@ -504,27 +505,27 @@ with tab3:
     st.markdown("---")
 
     # threshold comparison
-    st.subheader("Threshold Optimization: The 22x Improvement")
+    st.subheader("Threshold Optimization: The 9x Improvement")
     tc1, tc2, tc3 = st.columns(3)
     with tc1:
         st.markdown('<div class="impact-card">', unsafe_allow_html=True)
-        st.metric("Default Threshold (0.50)", "~2% Recall",
-                  delta="Misses 98% of readmissions", delta_color="inverse")
+        st.metric("Default Threshold (0.50)", "~4% Recall",
+                  delta="Misses 96% of readmissions", delta_color="inverse")
         st.markdown("</div>", unsafe_allow_html=True)
     with tc2:
         st.markdown('<div class="impact-card">', unsafe_allow_html=True)
-        st.metric("Optimized Threshold (0.15)", "~44% Recall",
-                  delta="22x improvement", delta_color="normal")
+        st.metric("Optimized Threshold (0.20)", "~35% Recall",
+                  delta="9x improvement", delta_color="normal")
         st.markdown("</div>", unsafe_allow_html=True)
     with tc3:
         st.markdown('<div class="impact-card">', unsafe_allow_html=True)
-        st.metric("Recall Gain", "+42 percentage points",
-                  delta="From 2% to 44%", delta_color="normal")
+        st.metric("Recall Gain", "+31 percentage points",
+                  delta="From 4% to 35%", delta_color="normal")
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown(
-        "By lowering the classification threshold from 0.50 to 0.15, we trade a small "
-        "amount of precision for a massive gain in recall. In healthcare, **missing a "
+        "By lowering the classification threshold from 0.50 to 0.20, we trade a small "
+        "amount of precision for a significant gain in recall. In healthcare, **missing a "
         "readmission is far more costly than a false alarm** — a flagged patient just "
         "gets extra follow-up, while a missed one may end up back in the ER."
     )
@@ -571,7 +572,7 @@ with tab3:
     cs1, cs2 = st.columns([1, 1])
     with cs1:
         annual_discharges = st.number_input(
-            "Annual diabetic discharges at your hospital",
+            "Annual discharges at your hospital",
             min_value=100, max_value=50000, value=5000, step=100
         )
         readmit_rate = 0.114
@@ -582,19 +583,19 @@ with tab3:
 
     with cs2:
         total_readmits = int(annual_discharges * readmit_rate)
-        caught_at_44 = int(total_readmits * 0.44)
+        caught = int(total_readmits * 0.35)
         # assume 30% of flagged patients avoid readmission through intervention
-        prevented = int(caught_at_44 * 0.30)
+        prevented = int(caught * 0.30)
         savings = prevented * cost_per_readmit
 
         st.metric("Expected Readmissions / Year", f"{total_readmits:,}")
-        st.metric("Flagged by Model (44% recall)", f"{caught_at_44:,}")
+        st.metric("Flagged by Model (35% recall)", f"{caught:,}")
         st.metric("Prevented (est. 30% intervention success)", f"{prevented:,}")
         st.metric("Annual Savings", f"${savings:,.0f}")
 
     st.info(
         f"Even with a conservative 30% intervention success rate, a hospital with "
-        f"{annual_discharges:,} diabetic discharges could prevent **{prevented}** "
+        f"{annual_discharges:,} discharges could prevent **{prevented}** "
         f"readmissions and save approximately **${savings:,.0f}** per year."
     )
 
