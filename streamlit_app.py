@@ -17,7 +17,7 @@ import joblib
 
 # --- page config
 st.set_page_config(
-    page_title="Readmission Risk — CS 719 Raj Panchal",
+    page_title="Hospital Readmission Risk Assessment",
     page_icon="\U0001F3E5",
     layout="wide",
     initial_sidebar_state="expanded",
