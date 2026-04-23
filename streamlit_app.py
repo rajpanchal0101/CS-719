@@ -2,8 +2,8 @@
 Hospital Readmission Risk Assessment Dashboard
 Predictive Analytics & Explainable AI for Clinical Decision Support
 
-CS 719 — Data Science Project
-Raj Panchal (200490453) — University of Regina
+CS 719: Data Science Project
+Raj Panchal (200490453), University of Regina
 Dataset: 130-US Hospitals (101,766 patient encounters)
 """
 
@@ -170,7 +170,7 @@ with st.sidebar:
         options=["Circulatory", "Diabetes", "Respiratory", "Digestive",
                  "Genitourinary", "Neoplasms", "Musculoskeletal", "Injury", "Other"],
         index=0,
-        help="Primary diagnosis type — affects model prediction and LACE comorbidity score",
+        help="Primary diagnosis type. Affects model prediction and LACE comorbidity score.",
     )
 
     st.markdown("---")
@@ -266,7 +266,7 @@ else:
     risk, risk_color = "LOW RISK", "#00C853"
 
 # --- compute feature contributions for "Why This Prediction?"
-# Exclude ID-coded categoricals — z-scores are meaningless for them
+# Exclude ID-coded categoricals (z-scores are meaningless for them)
 categorical_coded = {"admission_type_id", "discharge_disposition_id", "admission_source_id"}
 top_feats = [
     f for f in pfi_df["feature"].head(15).tolist()
@@ -580,7 +580,7 @@ with tab3:
     st.markdown(
         "By lowering the classification threshold from 0.50 to 0.20, we trade a small "
         "amount of precision for a significant gain in recall. In healthcare, **missing a "
-        "readmission is far more costly than a false alarm** — a flagged patient just "
+        "readmission is far more costly than a false alarm**. A flagged patient just "
         "gets extra follow-up, while a missed one may end up back in the ER."
     )
 
@@ -630,7 +630,7 @@ with tab3:
         return min(sum(weights.get(d, 0) for d in [d1, d2, d3]), 5)
 
     def compute_lace(los, admission_type, diag_1_cat, diag_2_cat, diag_3_cat, n_emergency):
-        # L — Length of Stay
+        # L: Length of Stay
         if los < 1:       l_score = 0
         elif los == 1:    l_score = 1
         elif los == 2:    l_score = 2
@@ -639,10 +639,10 @@ with tab3:
         elif los <= 13:   l_score = 5
         else:             l_score = 7
 
-        # A — Acuity of Admission
+        # A: Acuity of Admission
         a_score = 3 if admission_type == 1 else 0
 
-        # C — Comorbidity via approximate CCI from diagnosis categories
+        # C: Comorbidity via approximate CCI from diagnosis categories
         cci = approx_cci(diag_1_cat, diag_2_cat, diag_3_cat)
         if cci == 0:   c_score = 0
         elif cci == 1: c_score = 1
@@ -650,7 +650,7 @@ with tab3:
         elif cci == 3: c_score = 3
         else:          c_score = 5
 
-        # E — Emergency Department visits (prior 6 months)
+        # E: Emergency Department visits (prior 6 months)
         e_score = min(n_emergency, 4)
 
         total = l_score + a_score + c_score + e_score
@@ -672,10 +672,10 @@ with tab3:
         st.markdown(f"""
 | Component | Input | Score |
 |-----------|-------|-------|
-| **L** — Length of Stay | {time_in_hospital} days | {l_sc} |
-| **A** — Acuity (Emergency) | {"Yes" if admission_type_id == 1 else "No"} | {a_sc} |
-| **C** — Comorbidity (CCI) | {categorical["diag_1"]} | {c_sc} |
-| **E** — ED Visits | {number_emergency} visits | {e_sc} |
+| **L**: Length of Stay | {time_in_hospital} days | {l_sc} |
+| **A**: Acuity (Emergency) | {"Yes" if admission_type_id == 1 else "No"} | {a_sc} |
+| **C**: Comorbidity (CCI) | {categorical["diag_1"]} | {c_sc} |
+| **E**: ED Visits | {number_emergency} visits | {e_sc} |
         """)
 
         lace_color = "#B71C1C" if lace_total >= 10 else "#1B5E20"
@@ -691,7 +691,7 @@ with tab3:
         st.markdown(
             '<p style="color:#9E9E9E;font-size:0.85rem;text-align:center;margin-top:0.5rem;">'
             'No probability estimate. No feature-level explanation.<br>'
-            'Fixed weights — cannot adapt to new data.</p>',
+            'Fixed weights, cannot adapt to new data.</p>',
             unsafe_allow_html=True,
         )
         st.markdown('</div>', unsafe_allow_html=True)
@@ -745,7 +745,7 @@ with tab3:
     elif lace_total >= 10 and prob >= optimal_threshold:
         verdict_text = (
             f"Both methods agree this patient is <b>at risk</b>. "
-            f"But our model goes further — it quantifies the risk at <b>{prob:.0%}</b> "
+            f"But our model goes further: it quantifies the risk at <b>{prob:.0%}</b> "
             f"and explains <i>which factors</i> are driving it."
         )
     else:
