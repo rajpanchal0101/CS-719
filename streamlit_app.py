@@ -165,6 +165,13 @@ with st.sidebar:
         "Number of Diagnoses", 1, 16, 7,
         help="Number of diagnoses coded for this encounter",
     )
+    diag_category = st.selectbox(
+        "Primary Diagnosis Category",
+        options=["Circulatory", "Diabetes", "Respiratory", "Digestive",
+                 "Genitourinary", "Neoplasms", "Musculoskeletal", "Injury", "Other"],
+        index=0,
+        help="Primary diagnosis type — affects model prediction and LACE comorbidity score",
+    )
 
     st.markdown("---")
     st.subheader("Additional Parameters")
@@ -224,7 +231,7 @@ def build_feature_vector():
     }
     categorical = {
         "race": "Caucasian", "gender": "Female",
-        "diag_1": "Circulatory", "diag_2": "Circulatory", "diag_3": "Other",
+        "diag_1": diag_category, "diag_2": "Circulatory", "diag_3": "Other",
     }
     return raw_numeric, categorical
 
@@ -259,9 +266,12 @@ else:
     risk, risk_color = "LOW RISK", "#00C853"
 
 # --- compute feature contributions for "Why This Prediction?"
-# approximate each feature's directional push on risk:
-# contribution = z_score * importance (normalized)
-top_feats = [f for f in pfi_df["feature"].head(10).tolist() if f in pop_stats.index][:8]
+# Exclude ID-coded categoricals — z-scores are meaningless for them
+categorical_coded = {"admission_type_id", "discharge_disposition_id", "admission_source_id"}
+top_feats = [
+    f for f in pfi_df["feature"].head(15).tolist()
+    if f in pop_stats.index and f not in categorical_coded
+][:8]
 pfi_lookup = dict(zip(pfi_df["feature"], pfi_df["importance_mean"]))
 
 contributions = []
@@ -428,8 +438,8 @@ with tab2:
         st.markdown("*How does changing one feature affect this patient's risk?*")
 
         numeric_feats = [
-            f for f in pfi_df["feature"].head(10).tolist()
-            if f in pop_stats.index and f in feature_names
+            f for f in pfi_df["feature"].head(15).tolist()
+            if f in pop_stats.index and f in feature_names and f not in categorical_coded
         ]
         selected_feat = st.selectbox(
             "Select a feature:", numeric_feats,
@@ -613,37 +623,32 @@ with tab3:
     st.markdown("*Same patient inputs evaluated by both methods side by side.*")
 
     # compute LACE score from current patient inputs
-    def compute_lace(los, admission_type, n_diagnoses, n_emergency):
-        # L — Length of Stay
-        if los < 1:
-            l_score = 0
-        elif los == 1:
-            l_score = 1
-        elif los == 2:
-            l_score = 2
-        elif los == 3:
-            l_score = 3
-        elif los <= 6:
-            l_score = 4
-        elif los <= 13:
-            l_score = 5
-        else:
-            l_score = 7
+    def approx_cci(d1, d2, d3):
+        # CCI weights matching standard Charlson index conditions
+        weights = {"Diabetes": 1, "Neoplasms": 2, "Respiratory": 1,
+                   "Genitourinary": 1, "Circulatory": 1}
+        return min(sum(weights.get(d, 0) for d in [d1, d2, d3]), 5)
 
-        # A — Acuity of Admission (emergency = 3, else 0)
+    def compute_lace(los, admission_type, diag_1_cat, diag_2_cat, diag_3_cat, n_emergency):
+        # L — Length of Stay
+        if los < 1:       l_score = 0
+        elif los == 1:    l_score = 1
+        elif los == 2:    l_score = 2
+        elif los == 3:    l_score = 3
+        elif los <= 6:    l_score = 4
+        elif los <= 13:   l_score = 5
+        else:             l_score = 7
+
+        # A — Acuity of Admission
         a_score = 3 if admission_type == 1 else 0
 
-        # C — Comorbidity (approximated from number of diagnoses)
-        if n_diagnoses <= 1:
-            c_score = 0
-        elif n_diagnoses <= 3:
-            c_score = 1
-        elif n_diagnoses <= 5:
-            c_score = 2
-        elif n_diagnoses <= 7:
-            c_score = 3
-        else:
-            c_score = 5
+        # C — Comorbidity via approximate CCI from diagnosis categories
+        cci = approx_cci(diag_1_cat, diag_2_cat, diag_3_cat)
+        if cci == 0:   c_score = 0
+        elif cci == 1: c_score = 1
+        elif cci == 2: c_score = 2
+        elif cci == 3: c_score = 3
+        else:          c_score = 5
 
         # E — Emergency Department visits (prior 6 months)
         e_score = min(n_emergency, 4)
@@ -652,7 +657,9 @@ with tab3:
         return total, l_score, a_score, c_score, e_score
 
     lace_total, l_sc, a_sc, c_sc, e_sc = compute_lace(
-        time_in_hospital, admission_type_id, number_diagnoses, number_emergency
+        time_in_hospital, admission_type_id,
+        categorical["diag_1"], categorical["diag_2"], categorical["diag_3"],
+        number_emergency,
     )
     lace_risk = "High Risk" if lace_total >= 10 else "Low Risk"
 
@@ -667,7 +674,7 @@ with tab3:
 |-----------|-------|-------|
 | **L** — Length of Stay | {time_in_hospital} days | {l_sc} |
 | **A** — Acuity (Emergency) | {"Yes" if admission_type_id == 1 else "No"} | {a_sc} |
-| **C** — Comorbidity | {number_diagnoses} diagnoses | {c_sc} |
+| **C** — Comorbidity (CCI) | {categorical["diag_1"]} | {c_sc} |
 | **E** — ED Visits | {number_emergency} visits | {e_sc} |
         """)
 

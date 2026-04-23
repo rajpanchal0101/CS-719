@@ -93,7 +93,7 @@ Recall improved from ~4% → ~35% at the optimal threshold — critical in a cli
 
 The LACE Index (Length of stay, Acuity, Comorbidity, ED visits) uses just 4 factors to classify readmission risk. This project computes LACE scores for every patient in the held-out test set and benchmarks it directly against XGBoost — same patients, same ground truth, no retraining.
 
-XGBoost outperforms LACE on all metrics (higher ROC-AUC, better recall at the optimized threshold), while LACE remains competitive given it requires no training and works with minimal data.
+XGBoost outperforms LACE on ROC-AUC, accuracy, precision, and F1. LACE achieves higher recall by design — it flags a larger share of patients as high-risk, catching more readmissions but at the cost of many more false alarms. XGBoost's richer feature set gives it better discriminative power overall, while LACE's simplicity (no training needed, works anywhere) explains why hospitals still rely on it.
 
 ---
 
