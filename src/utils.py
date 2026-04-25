@@ -1,4 +1,4 @@
-# utils.py - helper functions for the CS 719 project notebook
+# utils.py - helper functions for the 200490453_Raj_Panchal_CS719_Project_Notebook.ipynb
 # Raj Panchal (200490453), University of Regina
 
 import pandas as pd
