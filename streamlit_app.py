@@ -1,11 +1,5 @@
-"""
-Hospital Readmission Risk Assessment Dashboard
-Predictive Analytics & Explainable AI for Clinical Decision Support
-
-CS 719: Data Science Project
-Raj Panchal (200490453), University of Regina
-Dataset: 130-US Hospitals (101,766 patient encounters)
-"""
+# Hospital Readmission Risk Assessment Dashboard
+# CS 719 - Raj Panchal (200490453), University of Regina
 
 import streamlit as st
 import pandas as pd
@@ -15,7 +9,7 @@ import matplotlib.patches as mpatches
 import json
 import joblib
 
-# --- page config
+# page config
 st.set_page_config(
     page_title="Hospital Readmission Risk Assessment",
     page_icon="\U0001F3E5",
@@ -23,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- custom CSS
+# custom CSS
 st.markdown("""<style>
     .main-header {
         font-size: 3rem; font-weight: 800; color: #FFFFFF;
@@ -104,7 +98,7 @@ st.markdown("""<style>
     }
 </style>""", unsafe_allow_html=True)
 
-# --- load model artifacts
+# load model artifacts
 @st.cache_resource
 def load_artifacts():
     model = joblib.load("model_artifacts/model.joblib")
@@ -124,7 +118,7 @@ except Exception as e:
     st.error(f"Could not load model artifacts. Run the notebook first.\n\nError: {e}")
     st.stop()
 
-# --- header
+# header
 st.markdown(
     '<div class="main-header">\U0001F3E5 Hospital Readmission Risk Assessment</div>',
     unsafe_allow_html=True,
@@ -138,7 +132,7 @@ st.markdown(
 )
 st.markdown("---")
 
-# --- sidebar: patient inputs
+# sidebar: patient inputs
 with st.sidebar:
     st.header("\U0001F9D1\u200D\u2695\uFE0F Patient Parameters")
     st.markdown("Adjust sliders to assess readmission risk for a patient encounter.")
@@ -207,7 +201,7 @@ with st.sidebar:
     )
 
 
-# --- prediction engine
+# prediction engine
 def build_feature_vector():
     """Assemble raw patient inputs into the model's feature space."""
     raw_numeric = {
@@ -265,7 +259,7 @@ elif prob >= optimal_threshold:
 else:
     risk, risk_color = "LOW RISK", "#00C853"
 
-# --- compute feature contributions for "Why This Prediction?"
+# compute feature contributions
 # Exclude ID-coded categoricals (z-scores are meaningless for them)
 categorical_coded = {"admission_type_id", "discharge_disposition_id", "admission_source_id"}
 top_feats = [
@@ -292,7 +286,7 @@ for feat in top_feats:
     })
 contrib_df = pd.DataFrame(contributions).sort_values("contribution", key=abs, ascending=True)
 
-# --- tabs
+# tabs
 tab1, tab2, tab3, tab4 = st.tabs([
     "\U0001FA7A Risk Assessment",
     "\U0001F50D Explainability & What-If",
@@ -300,7 +294,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "\u2699\uFE0F Model Performance",
 ])
 
-# --- TAB 1: RISK ASSESSMENT
+# TAB 1: Risk Assessment
 with tab1:
     # top metrics
     c1, c2, c3 = st.columns(3)
@@ -408,7 +402,7 @@ with tab1:
     for a in actions:
         st.markdown(f"- {a}")
 
-# --- TAB 2: EXPLAINABILITY & WHAT-IF
+# TAB 2: Explainability & What-If
 with tab2:
     col_pfi, col_whatif = st.columns([1, 1])
 
@@ -548,7 +542,7 @@ with tab2:
 - Steep curves = strong influence on this patient's risk
 """)
 
-# --- TAB 3: CLINICAL IMPACT
+# TAB 3: Clinical Impact
 with tab3:
     st.subheader("Why This Model Matters")
     st.markdown(
@@ -617,7 +611,7 @@ with tab3:
 | **Adaptability** | Retrainable as new data arrives |
         """)
 
-    # --- LACE vs AI: Live side-by-side comparison ---
+    # LACE vs AI: live side-by-side comparison
     st.markdown("---")
     st.subheader("Live Comparison: This Patient")
     st.markdown("*Same patient inputs evaluated by both methods side by side.*")
@@ -798,7 +792,7 @@ with tab3:
         f"readmissions and save approximately **${savings:,.0f}** per year."
     )
 
-# --- TAB 4: MODEL PERFORMANCE
+# TAB 4: Model Performance
 with tab4:
     st.subheader("Model Comparison")
     st.markdown(
@@ -843,7 +837,7 @@ with tab4:
         "associates the input features with readmission within 30 days."
     )
 
-# --- footer
+# footer
 st.markdown("---")
 st.markdown(
     '<div style="text-align:center; padding: 1rem 0;">'
