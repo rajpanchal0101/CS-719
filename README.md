@@ -21,7 +21,7 @@ The project also includes a quantitative comparison between the trained XGBoost 
 ├── Data/
 │   └── data.csv                                      # UCI 130-US Hospitals dataset
 ├── notebooks/
-│   └── Executed_200490453_Raj_Panchal_CS719_Project_Notebook.ipynb
+│   └── 200490453_Raj_Panchal_CS719_Project_Notebook.ipynb
 ├── src/
 │   └── utils.py                                      # Reusable helper functions
 ├── model_artifacts/
