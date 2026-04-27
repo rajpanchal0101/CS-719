@@ -21,7 +21,7 @@ The project also includes a quantitative comparison between the trained XGBoost 
 ├── Data/
 │   └── data.csv                                      # UCI 130-US Hospitals dataset
 ├── notebooks/
-│   └── 200490453_Raj_Panchal_CS719_Project_Notebook.ipynb
+│   └── Executed_200490453_Raj_Panchal_CS719_Project_Notebook.ipynb
 ├── src/
 │   └── utils.py                                      # Reusable helper functions
 ├── model_artifacts/
@@ -67,7 +67,7 @@ The notebook walks through 18 sections end-to-end:
 10. **Best Model Selection**: selected based on test ROC-AUC + CV stability
 11. **Explainability: PFI**: Permutation Feature Importance on XGBoost
 12. **Explainability: PDP**: Partial Dependence Plots for top features
-13. **Threshold Optimization**: swept 0.01–0.99, maximized F1; moved from 0.50 → 0.20
+13. **Threshold Optimization**: swept 0.05–0.95, maximized F1; moved from 0.50 → 0.20
 14. **LACE Index vs. XGBoost**: head-to-head comparison on the same test set (ROC-AUC, precision, recall, F1)
 15. **Sample Predictions**: 20 random test patients with actual vs. predicted
 16. **Patient Risk Assessment**: interactive `predict_patient()` function with risk gauge and feature profile
@@ -119,8 +119,8 @@ The dashboard (`streamlit_app.py`) wraps the trained model into a clinical tool 
 
 - **Risk Assessment**: adjust patient parameters via sliders, get a real-time risk score and verdict
 - **Explainability & What-If**: see which features drive the prediction and simulate changes
-- **Clinical Impact**: population-level charts and feature importance visualization
-- **Model Performance**: ROC-AUC, confusion matrix, and model comparison table
+- **Clinical Impact**: threshold optimization impact, LACE vs. XGBoost comparison, live side-by-side patient scoring, and cost savings estimator
+- **Model Performance**: model comparison table with dataset and training details
 
 ---
 
