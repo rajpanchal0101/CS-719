@@ -1,13 +1,5 @@
-"""
-This file consists of all the utility functions used for the project
-"Predictive Analytics and Explainable AI for Hospital Readmission Risk"
-and is imported in 200490453_Raj_Panchal_CS719_Project_Notebook.ipynb
-
-Covers: data profiling, visualization, cleaning, feature engineering,
-preprocessing, model evaluation, and explainability (PFI, PDP, threshold).
-
-CS 719 — Raj Panchal (200490453) — University of Regina
-"""
+# utils.py - helper functions for the 200490453_Raj_Panchal_CS719_Project_Notebook.ipynb
+# Raj Panchal (200490453), University of Regina
 
 import pandas as pd
 import numpy as np
@@ -36,9 +28,8 @@ from sklearn.metrics import (
 from sklearn.inspection import permutation_importance, PartialDependenceDisplay
 
 
-# ---------------------------------------------------------------------------
-# 1. Data profiling
-# ---------------------------------------------------------------------------
+
+# Data profiling
 
 def profile(df: pd.DataFrame) -> pd.DataFrame:
     """Return a concise profile of every column in a DataFrame."""
@@ -78,9 +69,8 @@ def detect_outliers_iqr(df: pd.DataFrame, factor: float = 1.5) -> pd.DataFrame:
     return ((numeric < (q1 - factor * iqr)) | (numeric > (q3 + factor * iqr)))
 
 
-# ---------------------------------------------------------------------------
-# 2. Visualization helpers
-# ---------------------------------------------------------------------------
+
+# Visualization helpers
 
 def plot_distributions(df: pd.DataFrame, cols=None, figsize=(16, 4)):
     """Histogram + KDE for selected numeric columns."""
@@ -173,9 +163,8 @@ def plot_target_vs_features(df: pd.DataFrame, target: str,
     plt.show()
 
 
-# ---------------------------------------------------------------------------
-# 3. Data cleaning helpers (Diabetes-specific)
-# ---------------------------------------------------------------------------
+
+# Data cleaning
 
 def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     """Clean the hospital encounters dataset.
@@ -307,9 +296,8 @@ def create_binary_target(df: pd.DataFrame, col: str = 'readmitted') -> pd.DataFr
     return df
 
 
-# ---------------------------------------------------------------------------
-# 4. Preprocessing helpers
-# ---------------------------------------------------------------------------
+
+# Preprocessing
 
 def encode_and_prepare(df: pd.DataFrame, target: str,
                        test_size: float = 0.2,
@@ -352,9 +340,8 @@ def encode_and_prepare(df: pd.DataFrame, target: str,
     return X_train, X_test, y_train, y_test, feature_names, scaler
 
 
-# ---------------------------------------------------------------------------
-# 5. Model evaluation helpers
-# ---------------------------------------------------------------------------
+
+# Model evaluation
 
 def evaluate_classifier(model, X_test, y_test, label_names=None):
     """Print classification report and return dict of key metrics."""
@@ -416,7 +403,7 @@ def plot_roc_curves(models: dict, X_test, y_test, figsize=(9, 7)):
     plt.ylim([-0.01, 1.01])
     plt.xlabel('False Positive Rate', fontsize=12)
     plt.ylabel('True Positive Rate', fontsize=12)
-    plt.title('ROC Curves — All Models', fontsize=14, fontweight='bold')
+    plt.title('ROC Curves - All Models', fontsize=14, fontweight='bold')
     plt.legend(loc='lower right', fontsize=11, frameon=True, fancybox=True, shadow=True)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -444,7 +431,7 @@ def plot_precision_recall_curves(models: dict, X_test, y_test, figsize=(9, 7)):
     plt.ylim([-0.01, 1.01])
     plt.xlabel('Recall', fontsize=12)
     plt.ylabel('Precision', fontsize=12)
-    plt.title('Precision-Recall Curves — All Models', fontsize=14, fontweight='bold')
+    plt.title('Precision-Recall Curves - All Models', fontsize=14, fontweight='bold')
     plt.legend(loc='upper right', fontsize=11, frameon=True, fancybox=True, shadow=True)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -455,7 +442,7 @@ def compare_models(results: dict, figsize=(12, 6)):
     """Bar chart comparing model metrics side by side."""
     df_results = pd.DataFrame(results).T
     ax = df_results.plot.bar(figsize=figsize, edgecolor='black', rot=0, width=0.75)
-    plt.title("Model Comparison — All Metrics", fontsize=14, fontweight='bold')
+    plt.title("Model Comparison - All Metrics", fontsize=14, fontweight='bold')
     plt.ylabel("Score", fontsize=12)
     plt.ylim(0, 1)
     plt.legend(loc='lower right', fontsize=10, frameon=True)
@@ -500,9 +487,8 @@ def cross_val_box_plot(models: dict, X, y, cv=5, scoring='roc_auc',
     return all_scores
 
 
-# ---------------------------------------------------------------------------
-# 6. Explainability — Permutation Feature Importance
-# ---------------------------------------------------------------------------
+
+# Permutation Feature Importance
 
 def plot_permutation_importance(model, X_test, y_test, feature_names=None,
                                 top_n=15, n_repeats=10, scoring='roc_auc',
@@ -538,9 +524,8 @@ def plot_permutation_importance(model, X_test, y_test, feature_names=None,
     return imp
 
 
-# ---------------------------------------------------------------------------
-# 7. Explainability — Partial Dependence Plots
-# ---------------------------------------------------------------------------
+
+# Partial Dependence Plots
 
 def plot_partial_dependence(model, X_test, features, feature_names=None,
                             figsize=(16, 10)):
@@ -556,15 +541,14 @@ def plot_partial_dependence(model, X_test, features, feature_names=None,
         kind='average', ax=ax,
         grid_resolution=50
     )
-    fig.suptitle('Partial Dependence Plots — Best Model',
+    fig.suptitle('Partial Dependence Plots - Best Model',
                  fontsize=14, fontweight='bold')
     plt.tight_layout()
     plt.show()
 
 
-# ---------------------------------------------------------------------------
-# 8. Threshold analysis
-# ---------------------------------------------------------------------------
+
+# Threshold analysis
 
 def threshold_analysis(model, X_test, y_test, figsize=(10, 7)):
     """Plot precision, recall, and F1 vs classification threshold."""
@@ -613,9 +597,8 @@ def threshold_analysis(model, X_test, y_test, figsize=(10, 7)):
     return best_threshold
 
 
-# ---------------------------------------------------------------------------
-# 9. Statistical tests
-# ---------------------------------------------------------------------------
+
+# Statistical tests
 
 def normality_test(series: pd.Series, alpha: float = 0.05):
     """Shapiro-Wilk test for normality (uses sample if > 5000 rows)."""
