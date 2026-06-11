@@ -1,5 +1,5 @@
-# utils.py - helper functions for the 200490453_Raj_Panchal_CS719_Project_Notebook.ipynb
-# Raj Panchal (200490453), University of Regina
+# utils.py - reusable helper functions for the Hospital Readmission Risk project
+# by Raj Panchal
 
 import pandas as pd
 import numpy as np

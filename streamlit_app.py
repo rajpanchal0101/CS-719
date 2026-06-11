@@ -1,5 +1,5 @@
 # Hospital Readmission Risk Assessment Dashboard
-# CS 719 - Raj Panchal (200490453), University of Regina
+# An independent data science project by Raj Panchal
 
 import streamlit as st
 import pandas as pd
@@ -126,7 +126,7 @@ st.markdown(
 st.markdown(
     '<div class="sub-header">'
     "Predictive Analytics & Explainable AI for Clinical Decision Support<br>"
-    "CS 719 \u2014 Raj Panchal (200490453) \u2014 University of Regina"
+    "An Independent Data Science Project by Raj Panchal"
     "</div>",
     unsafe_allow_html=True,
 )
@@ -845,8 +845,7 @@ st.markdown(
     "Predictive Analytics & Explainable AI for Hospital Readmission Risk"
     "</span><br>"
     '<span style="color:#B0BEC5; font-size:0.78rem;">'
-    "CS 719 \u2014 Data Science Project \u2014 Raj Panchal (200490453) \u2014 "
-    "University of Regina \u2014 Winter 2026"
+    "An Independent Data Science Project by Raj Panchal"
     "</span><br>"
     '<span style="color:#CFD8DC; font-size:0.72rem;">'
     "Built with XGBoost, Streamlit & Python \u2014 "
