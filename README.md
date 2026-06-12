@@ -1,9 +1,6 @@
 # Predictive Analytics and Explainable AI for Hospital Readmission Risk
 
-**Course:** CS 719: Data Science Project  
-**Student:** Raj Panchal (200490453)  
-**Instructor:** Dr. Howard J. Hamilton  
-**University of Regina** | Winter 2026
+An end-to-end data science project that predicts 30-day hospital readmission risk, explains *why* each prediction is made, and ships the results as an interactive clinical dashboard.
 
 ---
 
@@ -21,7 +18,7 @@ The project also includes a quantitative comparison between the trained XGBoost 
 ├── Data/
 │   └── data.csv                                      # UCI 130-US Hospitals dataset
 ├── notebooks/
-│   └── 200490453_Raj_Panchal_CS719_Project_Notebook.ipynb
+│   └── Hospital_Readmission_Risk_Notebook.ipynb
 ├── src/
 │   └── utils.py                                      # Reusable helper functions
 ├── model_artifacts/
