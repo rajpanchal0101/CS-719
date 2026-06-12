@@ -1,5 +1,5 @@
 # Hospital Readmission Risk Assessment Dashboard
-# An independent data science project by Raj Panchal
+# by Raj Panchal
 
 import streamlit as st
 import pandas as pd
@@ -126,7 +126,7 @@ st.markdown(
 st.markdown(
     '<div class="sub-header">'
     "Predictive Analytics & Explainable AI for Clinical Decision Support<br>"
-    "An Independent Data Science Project by Raj Panchal"
+    "Raj Panchal"
     "</div>",
     unsafe_allow_html=True,
 )
@@ -845,7 +845,7 @@ st.markdown(
     "Predictive Analytics & Explainable AI for Hospital Readmission Risk"
     "</span><br>"
     '<span style="color:#B0BEC5; font-size:0.78rem;">'
-    "An Independent Data Science Project by Raj Panchal"
+    "Raj Panchal"
     "</span><br>"
     '<span style="color:#CFD8DC; font-size:0.72rem;">'
     "Built with XGBoost, Streamlit & Python \u2014 "

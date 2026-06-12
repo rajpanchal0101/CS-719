@@ -1,6 +1,6 @@
 # Predictive Analytics and Explainable AI for Hospital Readmission Risk
 
-An independent, end-to-end data science project that predicts 30-day hospital readmission risk, explains *why* each prediction is made, and ships the results as an interactive clinical dashboard.
+An end-to-end data science project that predicts 30-day hospital readmission risk, explains *why* each prediction is made, and ships the results as an interactive clinical dashboard.
 
 ---
 
